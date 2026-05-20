@@ -1,62 +1,64 @@
-# PARCE 材料结构预测系统
+# PARCE Material Structure Prediction System
 
-PARCE 是一个面向材料结构类型预测的机器学习流程。项目以材料的声子频率或拉曼活性频率为输入，结合结构参数聚类与 RCNet 深度学习模型，预测材料所属的结构类型 ID（簇 ID），从而获取材料结构信息。
+[中文说明](README_zh.md)
 
-## 目录
+PARCE is a machine-learning workflow for predicting material structure types. It takes phonon frequencies or Raman-active frequencies as input, combines structural-parameter clustering with the RCNet deep-learning model, and predicts the structure type ID (cluster ID) of a material to provide structural information.
 
-- [项目概述](#项目概述)
-- [运行环境](#运行环境)
-- [数据集](#数据集)
-- [目录结构](#目录结构)
-- [使用流程](#使用流程)
-- [主要参数](#主要参数)
-- [输入输出](#输入输出)
-- [示例](#示例)
-- [注意事项](#注意事项)
+## Table of Contents
 
-## 项目概述
+- [Project Overview](#project-overview)
+- [Runtime Environment](#runtime-environment)
+- [Datasets](#datasets)
+- [Directory Structure](#directory-structure)
+- [Workflow](#workflow)
+- [Main Parameters](#main-parameters)
+- [Inputs and Outputs](#inputs-and-outputs)
+- [Examples](#examples)
+- [Notes](#notes)
 
-项目主要包含 5 个阶段：
+## Project Overview
 
-1. **结构参数聚类**
-   - 使用空间群、Pearson 符号、Wyckoff 序列、`c/a` 比率、`β` 角等结构参数进行 K-means 聚类。
-   - 通过轮廓系数（Silhouette Score）和 SSE 拐点分析选择较优聚类方案。
+The project mainly consists of five stages:
 
-2. **频率数据处理**
-   - 对同一结构簇内的声子频率或拉曼频率进行标准化。
-   - 对频率序列进行截断或补齐。
-   - 计算簇内平均频率，得到簇代表性频率。
+1. **Structural-parameter clustering**
+   - Perform K-means clustering using structural parameters such as space group, Pearson symbol, Wyckoff sequence, `c/a` ratio, and `β` angle.
+   - Select a better clustering scheme using the Silhouette Score and SSE elbow analysis.
 
-3. **亲和传播聚类**
-   - 基于簇代表性频率进行 Affinity Propagation 聚类。
-   - 构建频率特征与结构类型之间的训练数据。
+2. **Frequency data processing**
+   - Standardize phonon or Raman frequencies within the same structural cluster.
+   - Truncate or pad frequency sequences.
+   - Compute the average frequency within each cluster to obtain representative cluster frequencies.
 
-4. **RCNet 模型训练**
-   - 使用 RCNet 神经网络学习频率特征到结构类型 ID 的映射。
-   - 支持批量训练、GPU 自动检测和并行训练。
+3. **Affinity Propagation clustering**
+   - Run Affinity Propagation clustering based on representative cluster frequencies.
+   - Build training data linking frequency features to structure types.
 
-5. **PARCE 集成预测**
-   - 使用训练好的模型对新材料频率数据进行预测。
-   - 输出预测结构类型 ID。
+4. **RCNet model training**
+   - Train an RCNet neural network to learn the mapping from frequency features to structure type IDs.
+   - Supports batch training, automatic GPU detection, and parallel training.
 
-## 运行环境
+5. **PARCE integrated prediction**
+   - Use trained models to predict new material frequency data.
+   - Output predicted structure type IDs.
 
-建议使用 Conda 环境运行。
+## Runtime Environment
 
-| 项目 | 推荐配置 |
+A Conda environment is recommended.
+
+| Item | Recommended Configuration |
 | --- | --- |
-| Conda 环境名 | `PARCE` |
-| Python 版本 | `3.8.20` |
-| 主要运行方式 | Jupyter Notebook + Python 脚本 |
+| Conda environment name | `PARCE` |
+| Python version | `3.8.20` |
+| Main execution mode | Jupyter Notebook + Python scripts |
 
-### 创建并激活环境
+### Create and Activate the Environment
 
 ```bash
 conda create -n PARCE python=3.8.20
 conda activate PARCE
 ```
 
-### 安装依赖
+### Install Dependencies
 
 ```bash
 pip install pandas numpy matplotlib
@@ -65,82 +67,83 @@ pip install tqdm joblib jupyter tensorboard
 pip install torch torchvision torchaudio
 ```
 
-> 如果需要使用 CUDA 版 PyTorch，请根据服务器 CUDA 版本安装对应的 PyTorch 包。
+> If CUDA-enabled PyTorch is required, install the PyTorch package that matches the CUDA version on your server.
 
-## 数据集
+## Datasets
 
-当前仓库包含两个示例数据集：
+This repository currently includes two example datasets:
 
-| 文件 | 说明 |
+| File | Description |
 | --- | --- |
-| `dataset/phono_freq_dataset.csv` | 声子频率数据集 |
-| `dataset/raman_dataset.csv` | 拉曼活性频率数据集 |
+| `dataset/phono_freq_dataset.csv` | Phonon frequency dataset |
+| `dataset/raman_dataset.csv` | Raman-active frequency dataset |
 
-常用字段如下：
+Common fields are listed below:
 
-| 字段 | 说明 |
+| Field | Description |
 | --- | --- |
-| `id` / `material_id` | 材料 ID |
-| `frequency` | 频率序列 |
-| `space_group_number` | 空间群编号 |
-| `pearson_symbol` | Pearson 符号 |
-| `wyckoff_sequence` | Wyckoff 序列 |
-| `c_a_ratio` | `c/a` 轴比 |
-| `beta_angle` | `β` 角 |
-| `cif` | CIF 结构信息 |
+| `id` / `material_id` | Material ID |
+| `frequency` | Frequency sequence |
+| `space_group_number` | Space group number |
+| `pearson_symbol` | Pearson symbol |
+| `wyckoff_sequence` | Wyckoff sequence |
+| `c_a_ratio` | `c/a` axis ratio |
+| `beta_angle` | `β` angle |
+| `cif` | CIF structural information |
 
-## 目录结构
+## Directory Structure
 
 ```text
 .
-├── README.md
-├── cluster.ipynb              # 结构参数聚类与频率聚类主流程
-├── cluster_umap_1.py          # 聚类脚本
-├── parce.ipynb                # PARCE 训练数据处理与 RCNet 文件夹生成
-├── parce_batch.py             # RCNet 批量训练脚本
-├── predict.ipynb              # 预测流程
+├── README.md                  # English documentation
+├── README_zh.md               # Chinese documentation
+├── cluster.ipynb              # Main workflow for structural-parameter clustering and frequency clustering
+├── cluster_umap_1.py          # Clustering script
+├── parce.ipynb                # PARCE training-data processing and RCNet folder generation
+├── parce_batch.py             # RCNet batch training script
+├── predict.ipynb              # Prediction workflow
 ├── dataset/
-│   ├── phono_freq_dataset.csv # 声子频率示例数据
-│   └── raman_dataset.csv      # 拉曼频率示例数据
+│   ├── phono_freq_dataset.csv # Example phonon frequency data
+│   └── raman_dataset.csv      # Example Raman frequency data
 ├── examples/
-│   ├── phonon_freq/           # 声子频率预测示例
-│   └── raman/                 # 拉曼频率预测示例
+│   ├── phonon_freq/           # Phonon-frequency prediction example
+│   └── raman/                 # Raman-frequency prediction example
 └── template/
-    ├── getdata.py             # RCNet 数据读取模块
-    ├── network.py             # RCNet 网络结构
-    ├── train.py               # RCNet 训练脚本模板
-    └── utils.py               # RCNet 工具函数
+    ├── getdata.py             # RCNet data loading module
+    ├── network.py             # RCNet network architecture
+    ├── train.py               # RCNet training script template
+    └── utils.py               # RCNet utility functions
 ```
 
-运行过程中可能生成以下目录：
+The following directories may be generated during execution:
 
-| 目录 | 说明 |
+| Directory | Description |
 | --- | --- |
-| `all_cluster_results*/` | 不同特征组合和簇数的 K-means 聚类结果 |
-| `Kmeans_model/` | 保存的 K-means 模型 |
-| `clustering_results/` | 选定聚类方案的结果 |
-| `standardized_frequencies/` | 标准化后的频率数据 |
-| `frequency_cuts/` | 截断后的频率数据 |
-| `avg/` | 簇内平均频率结果 |
-| `training_data/` | RCNet 训练数据 |
-| `data_for_conversion/` | 数据转换临时目录 |
-| `rcnet_training_umap/` | 批量生成的 RCNet 训练目录 |
-| `model/` / `model_results/` | 训练得到的模型文件和结果 |
-| `batch_logs/` | 批量训练日志 |
-| `test/` | 预测测试数据与结果 |
-| `id/` | ID 映射文件 |
+| `all_cluster_results*/` | K-means clustering results for different feature combinations and cluster counts |
+| `Kmeans_model/` | Saved K-means models |
+| `clustering_results/` | Results of the selected clustering scheme |
+| `standardized_frequencies/` | Standardized frequency data |
+| `frequency_cuts/` | Truncated frequency data |
+| `avg/` | Intra-cluster average frequency results |
+| `training_data/` | RCNet training data |
+| `data_for_conversion/` | Temporary directory for data conversion |
+| `rcnet_training_umap/` | Batch-generated RCNet training directories |
+| `model/` / `model_results/` | Trained model files and results |
+| `batch_logs/` | Batch training logs |
+| `test/` | Prediction test data and results |
+| `id/` | ID mapping files |
 
-## 使用流程
+## Workflow
 
-### 1. 激活环境
+### 1. Activate the Environment
 
 ```bash
 conda activate PARCE
 ```
 
-### 2. 准备数据
+### 2. Prepare Data
 
-将数据放入 `dataset/` 目录，并确认至少包含以下字段：
+Place data files in the `dataset/` directory and make sure they contain at least the following fields:
 
 ```text
 frequency
@@ -151,87 +154,87 @@ c_a_ratio
 beta_angle
 ```
 
-如果使用 `cluster_umap_1.py`以在后台进行结构聚类，请先检查并修改脚本中的路径配置：
+If you use `cluster_umap_1.py` to run structural clustering in the background, first check and update the path configuration in the script:
 
 ```python
 DATASET_PATH = "dataset/your_dataset.csv"
 BASE_OUTPUT_DIR = "all_cluster_results"
 ```
 
-Notebook 中也可能包含数据路径配置，运行前请同步检查。
+The notebooks may also contain data path settings. Check and update them before running.
 
-### 3. 结构参数聚类与频率聚类
+### 3. Structural-Parameter Clustering and Frequency Clustering
 
-打开并按顺序执行：
+Open and run the following notebook in order:
 
 ```bash
 jupyter notebook cluster.ipynb
 ```
 
-该步骤将完成：
+This step performs:
 
-- 结构参数特征编码；
-- K-means 聚类；
-- 聚类效果评估；（可运行cluster_umap_1.py代替）
-- 频率标准化与截断；
-- 亲和传播聚类；
-- 训练数据初步生成。
+- Structural-parameter feature encoding;
+- K-means clustering;
+- Clustering performance evaluation; `cluster_umap_1.py` can be used as an alternative;
+- Frequency standardization and truncation;
+- Affinity Propagation clustering;
+- Initial training data generation.
 
-### 4. 生成 RCNet 训练目录
+### 4. Generate RCNet Training Directories
 
-打开并按顺序执行：
+Open and run the following notebook in order:
 
 ```bash
 jupyter notebook parce.ipynb
 ```
 
-该步骤将基于 `template/` 目录批量生成 RCNet 训练文件夹。
+This step batch-generates RCNet training folders based on the `template/` directory.
 
-### 5. 批量训练 RCNet 模型
+### 5. Batch Train RCNet Models
 
-先检查将要运行的训练任务：
+First inspect the training tasks to be executed:
 
 ```bash
 python parce_batch.py --dry-run
 ```
 
-确认无误后开始训练：
+After confirming the tasks, start training:
 
 ```bash
 python parce_batch.py --yes
 ```
 
-常用参数示例：
+Common parameter examples:
 
 ```bash
-# 指定训练目录
+# Specify the training directory
 python parce_batch.py --rcnet-training-dir ./rcnet_training_umap --yes
 
-# 指定特征组合和频率长度
+# Specify feature combinations and frequency lengths
 python parce_batch.py --main-folders 124 125 --num-folders 6 12 18 --yes
 
-# 强制并行训练
+# Force parallel training
 python parce_batch.py --parallel --max-workers 4 --yes
 
-# 仅使用 CPU
+# Use CPU only
 python parce_batch.py --cpu-only --yes
 ```
 
-### 6. 模型预测
+### 6. Model Prediction
 
-打开并按顺序执行：
+Open and run the following notebook in order:
 
 ```bash
 jupyter notebook predict.ipynb
 ```
 
-预测结果通常输出到 `test/` 或 Notebook 中配置的结果目录。
+Prediction results are usually written to `test/` or to the result directory configured in the notebook.
 
-## 主要参数
+## Main Parameters
 
-### 结构特征编码
+### Structural Feature Encoding
 
-| 编码 | 特征 |
+| Code | Feature |
 | --- | --- |
 | `1` | `space_group_number` |
 | `2` | `pearson_symbol` |
@@ -239,47 +242,47 @@ jupyter notebook predict.ipynb
 | `4` | `c_a_ratio` |
 | `5` | `beta_angle` |
 
-示例：
+Examples:
 
-- `124` 表示使用空间群、Pearson 符号和 `c/a` 比率；
-- `125` 表示使用空间群、Pearson 符号和 `β` 角；
-- `12345` 表示使用全部结构特征。
+- `124` means using space group, Pearson symbol, and `c/a` ratio;
+- `125` means using space group, Pearson symbol, and `β` angle;
+- `12345` means using all structural features.
 
-### 聚类参数
+### Clustering Parameters
 
-| 参数 | 默认/示例 |
+| Parameter | Default / Example |
 | --- | --- |
-| K-means 簇数范围 | `30-90`，步长 `5` |
-| 评估指标 | Silhouette Score、SSE 拐点 |
-| 频率截断长度 | 以 Notebook 或脚本配置为准 |
-| 批量训练目录 | `./rcnet_training_umap` |
+| K-means cluster-count range | `30-90`, step size `5` |
+| Evaluation metrics | Silhouette Score, SSE elbow |
+| Frequency truncation length | Subject to notebook or script configuration |
+| Batch training directory | `./rcnet_training_umap` |
 
-## 输入输出
+## Inputs and Outputs
 
-### 输入
+### Inputs
 
-- 材料频率序列：声子频率或拉曼活性频率；
-- 材料结构参数：空间群、Pearson 符号、Wyckoff 序列、`c/a` 比率、`β` 角。
+- Material frequency sequences: phonon frequencies or Raman-active frequencies;
+- Material structural parameters: space group, Pearson symbol, Wyckoff sequence, `c/a` ratio, and `β` angle.
 
-### 输出
+### Outputs
 
-- 结构类型 ID（簇 ID）；
-- K-means 聚类模型；
-- RCNet 训练数据；
-- RCNet 模型文件；
-- 预测结果 CSV。
+- Structure type ID (cluster ID);
+- K-means clustering model;
+- RCNet training data;
+- RCNet model files;
+- Prediction result CSV files.
 
-## 示例
+## Examples
 
-| 示例目录 | 说明 |
+| Example Directory | Description |
 | --- | --- |
-| `examples/phonon_freq/` | 根据声子频率进行结构分类 |
-| `examples/raman/` | 根据拉曼活性频率进行结构分类 |
+| `examples/phonon_freq/` | Structural classification based on phonon frequencies |
+| `examples/raman/` | Structural classification based on Raman-active frequencies |
 
-## 注意事项
+## Notes
 
-1. 建议保留标准文件名 `README.md`，不要使用 `READ.ME`。
-2. 运行 Notebook 前，请先确认数据路径和输出路径是否为当前项目路径。
-3. 部分脚本或 Notebook 可能包含历史绝对路径，迁移项目后需要手动修改。
-4. 批量训练会生成大量模型、日志和中间数据，运行前请确认磁盘空间充足。
-5. 如果服务器没有 GPU，`parce_batch.py` 会自动退回 CPU 模式，也可以使用 `--cpu-only` 强制使用 CPU。
+1. Keep `README.md` as the standard English entry point. The Chinese version is `README_zh.md`; do not use `READ.ME`.
+2. Before running notebooks, confirm that data paths and output paths point to the current project directory.
+3. Some scripts or notebooks may contain historical absolute paths. Update them manually after moving the project.
+4. Batch training can generate many models, logs, and intermediate files. Make sure there is enough disk space before running.
+5. If the server has no GPU, `parce_batch.py` will automatically fall back to CPU mode. You can also force CPU mode with `--cpu-only`.
