@@ -1,173 +1,285 @@
-材料PARCE预测系统
+# PARCE 材料结构预测系统
 
-运行环境
+PARCE 是一个面向材料结构类型预测的机器学习流程。项目以材料的声子频率或拉曼活性频率为输入，结合结构参数聚类与 RCNet 深度学习模型，预测材料所属的结构类型 ID（簇 ID），从而获取材料结构信息。
 
-本项目需要在以下环境中运行：
+## 目录
 
-环境名称: PARCE
-Python版本: 3.8.20
-主要依赖包:
-  pandas
-  numpy
-  matplotlib
-  scikit-learn
-  umap-learn
-  kneed
-  tqdm
-  joblib
-  torch (PyTorch) - 用于RCNet神经网络训练
-  re (正则表达式，Python内置)
-  os (操作系统接口，Python内置)
-  warnings (警告控制，Python内置)
-  itertools (迭代工具，Python内置)
-  argparse (命令行参数解析，Python内置)
-  shutil (文件操作，Python内置)
-  ast (抽象语法树，Python内置)
+- [项目概述](#项目概述)
+- [运行环境](#运行环境)
+- [数据集](#数据集)
+- [目录结构](#目录结构)
+- [使用流程](#使用流程)
+- [主要参数](#主要参数)
+- [输入输出](#输入输出)
+- [示例](#示例)
+- [注意事项](#注意事项)
 
-环境激活
+## 项目概述
+
+项目主要包含 5 个阶段：
+
+1. **结构参数聚类**
+   - 使用空间群、Pearson 符号、Wyckoff 序列、`c/a` 比率、`β` 角等结构参数进行 K-means 聚类。
+   - 通过轮廓系数（Silhouette Score）和 SSE 拐点分析选择较优聚类方案。
+
+2. **频率数据处理**
+   - 对同一结构簇内的声子频率或拉曼频率进行标准化。
+   - 对频率序列进行截断或补齐。
+   - 计算簇内平均频率，得到簇代表性频率。
+
+3. **亲和传播聚类**
+   - 基于簇代表性频率进行 Affinity Propagation 聚类。
+   - 构建频率特征与结构类型之间的训练数据。
+
+4. **RCNet 模型训练**
+   - 使用 RCNet 神经网络学习频率特征到结构类型 ID 的映射。
+   - 支持批量训练、GPU 自动检测和并行训练。
+
+5. **PARCE 集成预测**
+   - 使用训练好的模型对新材料频率数据进行预测。
+   - 输出预测结构类型 ID。
+
+## 运行环境
+
+建议使用 Conda 环境运行。
+
+| 项目 | 推荐配置 |
+| --- | --- |
+| Conda 环境名 | `PARCE` |
+| Python 版本 | `3.8.20` |
+| 主要运行方式 | Jupyter Notebook + Python 脚本 |
+
+### 创建并激活环境
+
+```bash
+conda create -n PARCE python=3.8.20
 conda activate PARCE
+```
 
-依赖包安装
-如果环境中缺少某些包，可以使用以下命令安装，例如：
-基础科学计算包
+### 安装依赖
+
+```bash
 pip install pandas numpy matplotlib
-
-机器学习包
 pip install scikit-learn umap-learn kneed
-
-工具包
-pip install tqdm joblib
-
-深度学习包（用于RCNet训练）
+pip install tqdm joblib jupyter tensorboard
 pip install torch torchvision torchaudio
+```
 
-项目概述
+> 如果需要使用 CUDA 版 PyTorch，请根据服务器 CUDA 版本安装对应的 PyTorch 包。
 
-PARCE是一个基于材料声子频率预测材料结构性质的机器学习系统。该系统通过多层聚类和深度学习技术，实现从材料声子频率到结构性质的预测。
+## 数据集
 
-核心工作流程：
+当前仓库包含两个示例数据集：
 
-1. 结构参数聚类阶段
-通过材料的结构参数（空间群、Pearson符号、Wyckoff序列、c/a比率、β角）进行K-means聚类
-将具有相似结构性质的材料聚类到同一簇中，每个簇代表一种结构类型
-优化特征组合和聚类簇数，找到最佳的结构分类方案
+| 文件 | 说明 |
+| --- | --- |
+| `dataset/phono_freq_dataset.csv` | 声子频率数据集 |
+| `dataset/raman_dataset.csv` | 拉曼活性频率数据集 |
 
-2. 声子频率处理阶段
-对每个结构簇内的材料声子频率进行标准化处理
-对声子频率进行截断
-计算每个簇内材料的平均声子频率，得到簇代表性频率
+常用字段如下：
 
-3. 亲和传播聚类阶段
-基于每个簇的代表性声子频率进行亲和传播聚类
-生成训练数据集，建立声子频率与结构类型的对应关系
+| 字段 | 说明 |
+| --- | --- |
+| `id` / `material_id` | 材料 ID |
+| `frequency` | 频率序列 |
+| `space_group_number` | 空间群编号 |
+| `pearson_symbol` | Pearson 符号 |
+| `wyckoff_sequence` | Wyckoff 序列 |
+| `c_a_ratio` | `c/a` 轴比 |
+| `beta_angle` | `β` 角 |
+| `cif` | CIF 结构信息 |
 
-4. RCNet深度学习训练
-使用RCNet神经网络架构训练预测模型
-学习声子频率特征与结构类型ID之间的映射关系
+## 目录结构
 
-5. PARCE集成预测
-将训练好的模型集成到PARCE系统中
-输入新材料的声子频率，输出预测的结构类型ID（簇ID）
+```text
+.
+├── README.md
+├── cluster.ipynb              # 结构参数聚类与频率聚类主流程
+├── cluster_umap_1.py          # 聚类脚本
+├── parce.ipynb                # PARCE 训练数据处理与 RCNet 文件夹生成
+├── parce_batch.py             # RCNet 批量训练脚本
+├── predict.ipynb              # 预测流程
+├── dataset/
+│   ├── phono_freq_dataset.csv # 声子频率示例数据
+│   └── raman_dataset.csv      # 拉曼频率示例数据
+├── examples/
+│   ├── phonon_freq/           # 声子频率预测示例
+│   └── raman/                 # 拉曼频率预测示例
+└── template/
+    ├── getdata.py             # RCNet 数据读取模块
+    ├── network.py             # RCNet 网络结构
+    ├── train.py               # RCNet 训练脚本模板
+    └── utils.py               # RCNet 工具函数
+```
 
-聚类参数说明
-特征编码: 1=space_group, 2=pearson_symbol, 3=wyckoff_sequence, 4=c_a_ratio, 5=beta_angle
-聚类簇数范围: 30-90（步长为5），可随时修改
-评估指标: 轮廓系数(Silhouette Score)和SSE拐点分析
+运行过程中可能生成以下目录：
 
-目录结构
+| 目录 | 说明 |
+| --- | --- |
+| `all_cluster_results*/` | 不同特征组合和簇数的 K-means 聚类结果 |
+| `Kmeans_model/` | 保存的 K-means 模型 |
+| `clustering_results/` | 选定聚类方案的结果 |
+| `standardized_frequencies/` | 标准化后的频率数据 |
+| `frequency_cuts/` | 截断后的频率数据 |
+| `avg/` | 簇内平均频率结果 |
+| `training_data/` | RCNet 训练数据 |
+| `data_for_conversion/` | 数据转换临时目录 |
+| `rcnet_training_umap/` | 批量生成的 RCNet 训练目录 |
+| `model/` / `model_results/` | 训练得到的模型文件和结果 |
+| `batch_logs/` | 批量训练日志 |
+| `test/` | 预测测试数据与结果 |
+| `id/` | ID 映射文件 |
 
-├── cluster.ipynb             结构参数与声子频率聚类主程序
-├── parce.ipynb               PARCE系统训练数据处理
-├── predict.ipynb             PARCE系统预测程序
-├── test                      测试数据目录
-│   └── test.csv              测试数据
-├── dataset/                  输入数据目录
-│   └── dataset.csv          材料数据集（包含结构特征和频率信息）
-├── all_cluster_results/      所有聚类结果输出目录(下面是例子)
-│   ├── 123/                 特征组合123的聚类结果
-│   └── 124/                 特征组合124的聚类结果
-├── Kmeans_model/            训练好的K-means模型保存目录
-├── clustering_results/       选定的聚类结果数据目录（例子选择了124、125、12345）
-├── frequency_cuts/          频率截断数据目录
-├── standardized_frequencies/ 标准化频率数据目录
-├── data_for_conversion/     数据转换临时目录
-├── training_data/           训练数据目录
-├── your_data/              用户自定义数据目录
-├── template/               RCNet文件夹对应模板文件目录
-├── model/                  已训练好的达标模型文件目录
-├── rcnet_training/         RCNet训练相关目录，其中包含训练文件夹
-├── avg/                    簇内平均声子频率结果目录(124组合，30截断长度)
-├── batch_logs/             批处理日志目录
-└── id/                     ID映射文件目录
+## 使用流程
 
-使用说明
+### 1. 激活环境
 
-1. 数据准备
-
-确保输入数据集 dataset/dataset.csv 包含以下必要字段：
-material_id: 材料ID
-frequency: 材料的声子频率
-space_group_number: 空间群编号
-pearson_symbol: Pearson符号
-wyckoff_sequence: Wyckoff序列
-c_a_ratio: c/a轴比
-beta_angle: β角
-
-2. 运行PARCE系统
-
-步骤一：结构参数聚类分析
-激活环境
+```bash
 conda activate PARCE
+```
 
-启动聚类分析
-打开cluster.ipynb
+### 2. 准备数据
 
-按顺序执行所有单元格，系统将：
-基于结构参数进行K-means聚类
-自动处理所有3个及以上的特征组合
-对每个组合进行30-90簇(可修改)的K-means聚类
-生成轮廓系数和SSE分析图表
-保存最优聚类结果
+将数据放入 `dataset/` 目录，并确认至少包含以下字段：
 
-处理声子频率数据（标准化、截断、簇内平均）
-进行亲和传播聚类生成训练集
+```text
+frequency
+space_group_number
+pearson_symbol
+wyckoff_sequence
+c_a_ratio
+beta_angle
+```
 
-步骤二：PARCE模型训练数据集生成
-启动PARCE数据处理程序
- parce.ipynb
+如果使用 `cluster_umap_1.py`以在后台进行结构聚类，请先检查并修改脚本中的路径配置：
 
-按顺序执行所有单元格，系统将：
-对数据集进行预处理
-根据模板文件夹，批量生成RCNet训练文件夹
+```python
+DATASET_PATH = "dataset/your_dataset.csv"
+BASE_OUTPUT_DIR = "all_cluster_results"
+```
 
-3. 模型训练
-启动PARCE训练程序：
-python parce_batch.py
+Notebook 中也可能包含数据路径配置，运行前请同步检查。
 
-3. 模型预测
-启动PARCE预测程序：
-python predict.ipynb
+### 3. 结构参数聚类与频率聚类
 
+打开并按顺序执行：
 
+```bash
+jupyter notebook cluster.ipynb
+```
 
-输入输出与结果示例说明
+该步骤将完成：
 
-输入数据
-位置: dataset/dataset.csv
-格式: CSV文件，包含材料的结构特征和声子频率信息
-必要字段: material_id, frequency, space_group_number, pearson_symbol, wyckoff_sequence, c_a_ratio, beta_angle
+- 结构参数特征编码；
+- K-means 聚类；
+- 聚类效果评估；（可运行cluster_umap_1.py代替）
+- 频率标准化与截断；
+- 亲和传播聚类；
+- 训练数据初步生成。
 
-PARCE系统输出
-输入: 材料声子频率
-输出: 预测的结构类型ID（簇ID）
-应用: 通过声子频率预测材料的结构类型,获取材料结构信息
+### 4. 生成 RCNet 训练目录
 
-中间结果输出
-聚类结果: all_cluster_results/ - 包含不同特征组合的K-means聚类分析结果
-模型文件: Kmeans_model/ - 保存的K-means模型，用于结构聚类
-训练数据: training_data/ - RCNet训练用的数据集
-预测结果: test/test_results.csv - 预测结果输出
+打开并按顺序执行：
 
-结果示例文件
-examples/phonon_freq - 根据声子频率做结构分类
-examples/raman - 根据拉曼活性频率做结构分类
+```bash
+jupyter notebook parce.ipynb
+```
+
+该步骤将基于 `template/` 目录批量生成 RCNet 训练文件夹。
+
+### 5. 批量训练 RCNet 模型
+
+先检查将要运行的训练任务：
+
+```bash
+python parce_batch.py --dry-run
+```
+
+确认无误后开始训练：
+
+```bash
+python parce_batch.py --yes
+```
+
+常用参数示例：
+
+```bash
+# 指定训练目录
+python parce_batch.py --rcnet-training-dir ./rcnet_training_umap --yes
+
+# 指定特征组合和频率长度
+python parce_batch.py --main-folders 124 125 --num-folders 6 12 18 --yes
+
+# 强制并行训练
+python parce_batch.py --parallel --max-workers 4 --yes
+
+# 仅使用 CPU
+python parce_batch.py --cpu-only --yes
+```
+
+### 6. 模型预测
+
+打开并按顺序执行：
+
+```bash
+jupyter notebook predict.ipynb
+```
+
+预测结果通常输出到 `test/` 或 Notebook 中配置的结果目录。
+
+## 主要参数
+
+### 结构特征编码
+
+| 编码 | 特征 |
+| --- | --- |
+| `1` | `space_group_number` |
+| `2` | `pearson_symbol` |
+| `3` | `wyckoff_sequence` |
+| `4` | `c_a_ratio` |
+| `5` | `beta_angle` |
+
+示例：
+
+- `124` 表示使用空间群、Pearson 符号和 `c/a` 比率；
+- `125` 表示使用空间群、Pearson 符号和 `β` 角；
+- `12345` 表示使用全部结构特征。
+
+### 聚类参数
+
+| 参数 | 默认/示例 |
+| --- | --- |
+| K-means 簇数范围 | `30-90`，步长 `5` |
+| 评估指标 | Silhouette Score、SSE 拐点 |
+| 频率截断长度 | 以 Notebook 或脚本配置为准 |
+| 批量训练目录 | `./rcnet_training_umap` |
+
+## 输入输出
+
+### 输入
+
+- 材料频率序列：声子频率或拉曼活性频率；
+- 材料结构参数：空间群、Pearson 符号、Wyckoff 序列、`c/a` 比率、`β` 角。
+
+### 输出
+
+- 结构类型 ID（簇 ID）；
+- K-means 聚类模型；
+- RCNet 训练数据；
+- RCNet 模型文件；
+- 预测结果 CSV。
+
+## 示例
+
+| 示例目录 | 说明 |
+| --- | --- |
+| `examples/phonon_freq/` | 根据声子频率进行结构分类 |
+| `examples/raman/` | 根据拉曼活性频率进行结构分类 |
+
+## 注意事项
+
+1. 建议保留标准文件名 `README.md`，不要使用 `READ.ME`。
+2. 运行 Notebook 前，请先确认数据路径和输出路径是否为当前项目路径。
+3. 部分脚本或 Notebook 可能包含历史绝对路径，迁移项目后需要手动修改。
+4. 批量训练会生成大量模型、日志和中间数据，运行前请确认磁盘空间充足。
+5. 如果服务器没有 GPU，`parce_batch.py` 会自动退回 CPU 模式，也可以使用 `--cpu-only` 强制使用 CPU。
